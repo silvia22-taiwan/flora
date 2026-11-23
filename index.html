@@ -341,7 +341,7 @@ async function loadVideo(url, idx=cur){
     const oc=document.createElement('canvas'); oc.width=cw; oc.height=ch;
     const o=oc.getContext('2d',{willReadFrequently:true});
     const src=[0,0,v.videoWidth,v.videoHeight*(1-CROP),0,0,cw,ch];
-    let gain=1;
+    let gain=1, bgAvg=255;
     const feather=()=>{
       const m=Math.round(Math.min(cw,ch)*0.10);
       [[0,0,m,0,0,0,m,ch],[cw,0,cw-m,0,cw-m,0,m,ch],[0,0,0,m,0,0,cw,m],[0,ch,0,ch-m,0,ch-m,cw,m]].forEach(([x0,y0,x1,y1,rx,ry,rw,rh])=>{
@@ -356,11 +356,11 @@ async function loadVideo(url, idx=cur){
         o.drawImage(v,...src);
         const p=Math.max(4,Math.round(cw*0.03)); let sum=0,cnt=0;
         [[0,0],[cw-p,0],[0,ch-p],[cw-p,ch-p]].forEach(([x,y])=>{ const d=o.getImageData(x,y,p,p).data; for(let k=0;k<d.length;k+=4){ sum+=(d[k]+d[k+1]+d[k+2])/3; cnt++; } });
-        gain=Math.min(1.3, Math.max(1, 248/(sum/cnt)));
+        bgAvg=sum/cnt; gain=Math.min(1.3, Math.max(1, 255/bgAvg));   // 背景提亮到纯白，避免出现方框
       }
       o.filter = gain>1.001 ? `brightness(${gain})` : 'none';
       o.drawImage(v,...src);
-      o.filter='none'; if(gain>1.02) feather();   // 背景已是纯白就不需要羽化
+      o.filter='none'; if(bgAvg<245) feather();   // 背景明显偏灰时才羽化四周
       out.push(await createImageBitmap(oc));
       loading.textContent=`Preparing video… ${Math.round((i+1)/N*100)}%`;
     }
