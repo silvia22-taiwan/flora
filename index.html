@@ -76,10 +76,22 @@
   .loading.on{display:block}
 
   @media (max-width:760px){
+    /* 手机：标题在上，花在中间，花名和百分比在花下方，控制条在底部 */
     nav{display:none}
-    .left{top:96px;transform:none}
-    .right{top:auto;bottom:150px;transform:none}
-    .cam{width:120px;bottom:150px;left:max(16px,3vw);right:auto}
+    .left{top:84px;transform:none;max-width:none;right:16px}
+    h1{margin:12px 0 8px}
+    .right{top:auto;bottom:118px;left:max(16px,3vw);right:max(16px,3vw);width:auto;transform:none;
+      display:grid;grid-template-columns:1fr auto;align-items:end;column-gap:12px}
+    .right .num,.right .meta{display:none}
+    .right .cn{grid-column:1;margin-top:0}
+    .right .latin{grid-column:1;font-size:18px}
+    .right .pct{grid-column:2;grid-row:1 / span 2;margin-top:0;font-size:38px}
+    footer{gap:10px;padding-block:12px}
+    footer .quote,.file{display:none}
+    .controls{width:100%;gap:10px;flex-wrap:wrap}
+    input[type=range]{flex:1;min-width:80px;width:auto}
+    #status{order:5;flex-basis:100%;font-size:11px;min-width:0}
+    .cam{width:110px;bottom:auto;top:84px;left:auto;right:max(16px,3vw)}
   }
 </style>
 </head>
@@ -298,8 +310,8 @@ function drawFrames(t){
   const f = t*(n-1), i = Math.floor(f), k = f-i;
   const img = frames[i], nxt = frames[Math.min(n-1,i+1)];
   // 窄屏时花可以宽一些；宽屏时留出两侧文字的位置
-  const s = Math.min((W<760?0.92:0.52)*W/img.width, H*0.62/img.height);
-  const w = img.width*s, h = img.height*s, x=(W-w)/2, y=(H-h)/2;
+  const s = Math.min((W<760?0.92:0.52)*W/img.width, (W<760?0.42:0.62)*H/img.height);
+  const w = img.width*s, h = img.height*s, x=(W-w)/2, y=(W<760 ? H*0.46 : H*0.5) - h/2;
   ctx.globalAlpha=1; ctx.drawImage(img,x,y,w,h);
   if(k>0.001 && nxt!==img){ ctx.globalAlpha=k; ctx.drawImage(nxt,x,y,w,h); ctx.globalAlpha=1; }
 }
