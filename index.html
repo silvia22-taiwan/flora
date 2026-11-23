@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Flora 山茶</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Noto+Serif+SC:wght@300;400&display=swap">
+<style>
+  /* 布局：整屏画布居中放花，四周是杂志式的细小排版 */
+  :root{
+    --paper:#f3f0e9;
+    --ink:#23211c;
+    --ink-soft:#6f6a5f;
+    --line:#d9d3c6;
+    --accent:#9a2f2a;
+    --display:"Cormorant Garamond","Noto Serif SC",Georgia,serif;
+    --cn:"Noto Serif SC","Songti SC",serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--cn);font-weight:300;overflow:hidden;-webkit-font-smoothing:antialiased}
+
+  .light{position:fixed;inset:0;pointer-events:none;
+    background:
+      radial-gradient(ellipse 42% 48% at 50% 46%, rgba(255,255,255,.95), rgba(255,255,255,0) 70%),
+      radial-gradient(ellipse 90% 80% at 50% 50%, rgba(0,0,0,0) 55%, rgba(70,60,40,.10) 100%);}
+  canvas#stage{position:fixed;inset:0;width:100%;height:100%}
+  canvas#stage.video{mix-blend-mode:multiply}
+
+  header{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+    padding:22px max(16px,3vw);border-bottom:1px solid var(--line);font-size:11px;letter-spacing:.18em}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-size:15px;letter-spacing:.32em}
+  .brand i{width:8px;height:8px;border-radius:50%;background:var(--accent);display:block}
+  nav{display:flex;gap:28px;color:var(--ink-soft)}
+  nav span:last-child{color:var(--ink);border-bottom:1px solid var(--ink);padding-bottom:3px}
+
+  .left{position:fixed;left:max(16px,5vw);top:50%;transform:translateY(-50%);max-width:280px}
+  .eyebrow{font-size:10px;letter-spacing:.22em;color:var(--ink-soft);display:flex;align-items:center;gap:10px}
+  .eyebrow::before{content:"";width:28px;height:1px;background:var(--ink-soft)}
+  h1{font-family:var(--display);font-weight:300;font-size:clamp(40px,5vw,72px);line-height:.95;margin:18px 0 14px}
+  h1 em{display:block;font-style:italic}
+  .tag{font-size:13px;color:var(--ink-soft);letter-spacing:.1em}
+
+  .right{position:fixed;right:max(16px,5vw);top:50%;transform:translateY(-50%);text-align:left;width:150px}
+  .right .num{font-family:var(--display);font-style:italic;font-size:13px;color:var(--ink-soft)}
+  .right .cn{font-size:18px;margin-top:10px}
+  .right .latin{font-family:var(--display);font-size:22px;line-height:1.1;margin-top:4px}
+  .right .meta{font-size:11px;color:var(--ink-soft);margin-top:14px;padding-top:10px;border-top:1px solid var(--line);line-height:1.8;letter-spacing:.08em}
+  .right .pct{font-family:var(--display);font-size:44px;font-weight:300;margin-top:22px;font-variant-numeric:tabular-nums}
+  .right .pct small{font-size:16px;color:var(--ink-soft)}
+
+  footer{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-between;align-items:center;gap:20px;
+    padding:18px max(16px,3vw);border-top:1px solid var(--line);font-size:12px;color:var(--ink-soft);flex-wrap:wrap}
+  footer .quote{font-family:var(--display);font-style:italic;font-size:15px;color:var(--ink)}
+  .controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  button,.file{font:inherit;font-size:12px;letter-spacing:.08em;background:none;border:1px solid var(--ink);color:var(--ink);
+    padding:8px 14px;border-radius:999px;cursor:pointer}
+  button:hover,.file:hover{background:var(--ink);color:var(--paper)}
+  button:focus-visible,.file:focus-within,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .file input{display:none}
+  input[type=range]{width:160px;accent-color:var(--ink)}
+  #status{min-width:12em}
+
+  .cam{position:fixed;right:max(16px,3vw);bottom:76px;width:176px;aspect-ratio:4/3;border:1px solid var(--line);
+    background:#1b1a17;overflow:hidden;display:none}
+  .cam.on{display:block}
+  .cam video,.cam canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  .cam video{opacity:.55;filter:grayscale(1)}
+
+  .drop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(243,240,233,.85);
+    font-family:var(--display);font-size:28px;font-style:italic;border:2px dashed var(--ink-soft);margin:12px}
+  .drop.on{display:flex}
+  .loading{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--display);font-style:italic;font-size:20px;display:none}
+  .loading.on{display:block}
+
+  @media (max-width:760px){
+    nav{display:none}
+    .left{top:96px;transform:none}
+    .right{top:auto;bottom:150px;transform:none}
+    .cam{width:120px;bottom:150px;left:max(16px,3vw);right:auto}
+  }
+</style>
+</head>
+<body>
+<div class="light"></div>
+<canvas id="stage"></canvas>
+
+<header>
+  <div class="brand"><i></i>FLORA</div>
+  <nav><span>花材</span><span>四季</span><span>灯光</span><span>手势互动</span></nav>
+</header>
+
+<section class="left">
+  <div class="eyebrow">NO.01 · 冬季花信</div>
+  <h1 id="title">In full<em>bloom.</em></h1>
+  <div class="tag" id="tagline">张开手掌，看它一瓣一瓣地打开。</div>
+</section>
+
+<aside class="right">
+  <div class="num" id="fNum">01 / 03</div>
+  <div class="cn" id="fCn">山茶</div>
+  <div class="latin" id="fLatin">Camellia japonica</div>
+  <div class="meta"><span id="fFamily">山茶科 · 山茶属</span><br><span id="fSeason">花期 十二月 — 三月</span></div>
+  <div class="pct"><span id="pct">0</span><small> %</small></div>
+</aside>
+
+<div class="cam" id="camBox"><video id="cam" playsinline muted></video><canvas id="camDraw"></canvas></div>
+
+<footer>
+  <div class="quote">花开有时，掌心为期。</div>
+  <div class="controls">
+    <button id="prevBtn" aria-label="上一种花">‹</button>
+    <button id="nextBtn" aria-label="下一种花">›</button>
+    <span id="status">未开启摄像头 · 可拖动滑块预览</span>
+    <input type="range" id="slider" min="0" max="1000" value="0" aria-label="开花程度">
+    <button id="camBtn">开启摄像头</button>
+    <label class="file">为这朵花载入视频<input type="file" id="fileIn" accept="video/*"></label>
+  </div>
+</footer>
+
+<div class="drop" id="drop">松开即可载入开花视频</div>
+<div class="loading" id="loading">正在准备视频帧…</div>
+
+<script type="module">
+/* ---------------- 花的清单：加新花只需在这里加一项，并把视频放进 videos/ ---------------- */
+const FLOWERS = [
+  { id:'camellia', cn:'山茶', latin:'Camellia japonica', family:'山茶科 · 山茶属', season:'花期 十二月 — 三月',
+    video:'videos/camellia.mp4', stamens:true,
+    colors:['#d6d8b4','#ece9da','#f8f6ef','#ffffff'], edge:'rgba(140,125,95,.22)' },
+  { id:'peony', cn:'芍药', latin:'Paeonia lactiflora', family:'芍药科 · 芍药属', season:'花期 五月 — 六月',
+    video:'videos/peony.mp4', stamens:true,
+    colors:['#c4627f','#e49cb0','#f4cbd6','#fdeef2'], edge:'rgba(150,70,95,.25)' },
+  { id:'rose', cn:'玫瑰', latin:"Rosa 'Grand Prix'", family:'蔷薇科 · 蔷薇属', season:'花期 四月 — 十月',
+    video:'videos/rose.mp4', stamens:false,
+    colors:['#4a0b14','#7e1724','#a8242f','#c63f48'], edge:'rgba(50,8,12,.4)' },
+];
+let cur = 0;
+const frameCache = {};   // 每种花的视频帧
+
+/* ---------------- 状态 ---------------- */
+const stage = document.getElementById('stage');
+const ctx = stage.getContext('2d');
+let W=0,H=0,DPR=1;
+let target = 0;      // 手势给出的目标开合度 0..1
+let bloom = 0;       // 平滑后的实际开合度
+let handSeen = false;
+let frames = null;   // 视频模式下的帧序列
+
+function resize(){
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  W = innerWidth; H = innerHeight;
+  stage.width = W*DPR; stage.height = H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+addEventListener('resize', resize); resize();
+
+const slider = document.getElementById('slider');
+slider.addEventListener('input', ()=>{ target = slider.value/1000; });
+addEventListener('wheel', e=>{ if(!handSeen){ target = Math.min(1,Math.max(0,target - e.deltaY*0.0008)); } }, {passive:true});
+
+/* ---------------- 程序生成的占位花（等你的真实视频替换） ---------------- */
+function rand(seed){ let s=seed; return ()=>{ s=(s*16807)%2147483647; return (s-1)/2147483646; }; }
+const rnd = rand(7);
+const rings = [
+  {n:5, L:1.00, W:0.78, off:0.00, a0:20, a1:86},
+  {n:6, L:0.90, W:0.70, off:0.52, a0:15, a1:74},
+  {n:6, L:0.76, W:0.62, off:0.18, a0:10, a1:60},
+  {n:5, L:0.60, W:0.56, off:0.66, a0:6,  a1:44},
+  {n:4, L:0.44, W:0.52, off:0.30, a0:3,  a1:28},
+];
+rings.forEach(r=>{ r.petals = Array.from({length:r.n},(_,i)=>({
+  ang:(i+r.off)/r.n*Math.PI*2 + (rnd()-.5)*0.25,
+  l:1+(rnd()-.5)*0.12, w:1+(rnd()-.5)*0.15, tw:(rnd()-.5)*0.3
+}));});
+const stamens = Array.from({length:70},()=>({a:rnd()*Math.PI*2, r:Math.sqrt(rnd()), h:.7+rnd()*.3}));
+const ease = t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+
+function petalPath(l,w){
+  const p=new Path2D();
+  p.moveTo(0,0);
+  p.bezierCurveTo(l*.18,-w*.42, l*.55,-w*.62, l*.86,-w*.46);
+  p.quadraticCurveTo(l*1.03,-w*.26, l*.97,-w*.04);
+  p.lineTo(l*.93,0);
+  p.lineTo(l*.97,w*.05);
+  p.quadraticCurveTo(l*1.03,w*.27, l*.85,w*.47);
+  p.bezierCurveTo(l*.55,w*.62, l*.18,w*.42, 0,0);
+  return p;
+}
+
+function drawLeaf(cx,cy,ang,len,wid){
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(ang);
+  ctx.shadowColor='rgba(40,40,20,.25)'; ctx.shadowBlur=24; ctx.shadowOffsetY=10;
+  const p=new Path2D();
+  p.moveTo(0,0);
+  p.bezierCurveTo(len*.3,-wid*.9, len*.75,-wid*.7, len,0);
+  p.bezierCurveTo(len*.75,wid*.7, len*.3,wid*.9, 0,0);
+  const g=ctx.createLinearGradient(0,-wid,0,wid);
+  g.addColorStop(0,'#3f5a2c'); g.addColorStop(.45,'#2a4320'); g.addColorStop(.55,'#21361a'); g.addColorStop(1,'#152612');
+  ctx.fillStyle=g; ctx.fill(p);
+  ctx.shadowColor='transparent';
+  const s=ctx.createLinearGradient(0,-wid*.8,len*.6,0);
+  s.addColorStop(0,'rgba(255,255,240,.28)'); s.addColorStop(.5,'rgba(255,255,240,0)');
+  ctx.fillStyle=s; ctx.fill(p);
+  ctx.strokeStyle='rgba(190,200,150,.35)'; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.moveTo(0,0); ctx.quadraticCurveTo(len*.5,-wid*.06,len*.97,0); ctx.stroke();
+  ctx.restore();
+}
+
+function drawFlower(t, time){
+  const R = Math.min(W,H)*0.30;
+  const cx=W/2, cy=H*0.5;
+  const breathe = 1+Math.sin(time*0.0012)*0.006;
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.rotate(Math.sin(time*0.0004)*0.02);
+  ctx.scale(breathe, breathe*0.9);   // 轻微俯视角
+
+  drawLeaf(-R*.05,R*.1, Math.PI*0.82, R*1.45, R*.42);
+  drawLeaf(R*.05,R*.15, Math.PI*0.12, R*1.25, R*.38);
+
+  // 花下的柔和投影
+  const sh=ctx.createRadialGradient(R*.08,R*.18,0,R*.08,R*.18,R*(0.5+0.7*t));
+  sh.addColorStop(0,'rgba(60,50,30,.18)'); sh.addColorStop(1,'rgba(60,50,30,0)');
+  ctx.fillStyle=sh; ctx.beginPath(); ctx.arc(R*.08,R*.18,R*(0.5+0.7*t),0,Math.PI*2); ctx.fill();
+
+  const light = -Math.PI*0.75; // 光从左上方来
+  rings.forEach((ring,ri)=>{
+    const lt = ease(clamp((t - ri*0.07)/(1-0.28)));
+    const tilt = (ring.a0 + (ring.a1-ring.a0)*lt)*Math.PI/180;
+    ring.petals.forEach(pt=>{
+      const L = R*ring.L*pt.l*Math.max(0.24, Math.sin(tilt));
+      const Wd = R*ring.W*pt.w*(0.55+0.45*lt)*0.62;
+      const a = pt.ang + pt.tw*lt + (1-lt)*0.35*ri;
+      const facing = Math.cos(a - light);          // 朝光的一面更亮
+      ctx.save();
+      ctx.rotate(a);
+      ctx.shadowColor='rgba(70,60,35,.20)'; ctx.shadowBlur=R*.08; ctx.shadowOffsetY=R*.02;
+      const path = petalPath(L,Wd);
+      const fc = FLOWERS[cur].colors;
+      const g = ctx.createRadialGradient(0,0,0,0,0,L*1.05);
+      g.addColorStop(0,fc[0]);
+      g.addColorStop(.22,fc[1]);
+      g.addColorStop(.6,fc[2]);
+      g.addColorStop(1,fc[3]);
+      ctx.fillStyle=g; ctx.fill(path);
+      ctx.shadowColor='transparent';
+      // 花瓣曲面的明暗
+      const cg = ctx.createLinearGradient(0,-Wd*.6,0,Wd*.6);
+      cg.addColorStop(0,`rgba(255,255,255,${.25+.2*facing})`);
+      cg.addColorStop(.5,'rgba(255,255,255,0)');
+      cg.addColorStop(1,`rgba(110,95,65,${.10-.06*facing})`);
+      ctx.fillStyle=cg; ctx.fill(path);
+      // 叶脉
+      ctx.strokeStyle='rgba(150,140,105,.10)'; ctx.lineWidth=.7;
+      for(let k=-2;k<=2;k++){ ctx.beginPath(); ctx.moveTo(L*.06,0); ctx.quadraticCurveTo(L*.5,Wd*k*.12,L*.9,Wd*k*.16); ctx.stroke(); }
+      ctx.strokeStyle=FLOWERS[cur].edge; ctx.lineWidth=.8; ctx.stroke(path);
+      ctx.restore();
+    });
+  });
+
+  // 花蕊（盛开时出现）
+  const sa = FLOWERS[cur].stamens ? clamp((t-.45)/.45) : 0;
+  if(sa>0){
+    const sr = R*.2*(.6+.4*sa);
+    stamens.forEach(s=>{
+      const x=Math.cos(s.a)*s.r*sr, y=Math.sin(s.a)*s.r*sr;
+      ctx.strokeStyle=`rgba(225,200,120,${.8*sa})`; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(x*.2,y*.2); ctx.lineTo(x,y); ctx.stroke();
+      ctx.fillStyle=`rgba(${200+s.h*40},${150+s.h*40},40,${sa})`;
+      ctx.beginPath(); ctx.arc(x,y,R*.012*s.h,0,Math.PI*2); ctx.fill();
+    });
+  }
+  ctx.restore();
+}
+
+/* ---------------- 视频帧模式 ---------------- */
+function drawFrames(t){
+  const n = frames.length;
+  const f = t*(n-1), i = Math.floor(f), k = f-i;
+  const img = frames[i], nxt = frames[Math.min(n-1,i+1)];
+  // 窄屏时花可以宽一些；宽屏时留出两侧文字的位置
+  const s = Math.min((W<760?0.92:0.52)*W/img.width, H*0.62/img.height);
+  const w = img.width*s, h = img.height*s, x=(W-w)/2, y=(H-h)/2;
+  ctx.globalAlpha=1; ctx.drawImage(img,x,y,w,h);
+  if(k>0.001 && nxt!==img){ ctx.globalAlpha=k; ctx.drawImage(nxt,x,y,w,h); ctx.globalAlpha=1; }
+}
+
+async function loadVideo(url, idx=cur){
+  const loading=document.getElementById('loading');
+  if(idx===cur) loading.classList.add('on');
+  try{
+    const v=document.createElement('video');
+    v.muted=true; v.playsInline=true; v.preload='auto'; v.src=url;
+    await new Promise((ok,bad)=>{ v.onloadeddata=ok; v.onerror=()=>bad(new Error('视频无法读取')); });
+    const N=90, max=1100;
+    const sc=Math.min(1, max/Math.max(v.videoWidth,v.videoHeight));
+    const out=[];
+    // 每帧处理：裁掉底部水印、把灰背景提亮成白色、四周羽化融进页面
+    const CROP=0.09;
+    const cw=Math.round(v.videoWidth*sc), ch=Math.round(v.videoHeight*sc*(1-CROP));
+    const oc=document.createElement('canvas'); oc.width=cw; oc.height=ch;
+    const o=oc.getContext('2d',{willReadFrequently:true});
+    const src=[0,0,v.videoWidth,v.videoHeight*(1-CROP),0,0,cw,ch];
+    let gain=1;
+    const feather=()=>{
+      const m=Math.round(Math.min(cw,ch)*0.10);
+      [[0,0,m,0,0,0,m,ch],[cw,0,cw-m,0,cw-m,0,m,ch],[0,0,0,m,0,0,cw,m],[0,ch,0,ch-m,0,ch-m,cw,m]].forEach(([x0,y0,x1,y1,rx,ry,rw,rh])=>{
+        const g=o.createLinearGradient(x0,y0,x1,y1); g.addColorStop(0,'#fff'); g.addColorStop(1,'rgba(255,255,255,0)');
+        o.fillStyle=g; o.fillRect(rx,ry,rw,rh);
+      });
+    };
+    for(let i=0;i<N;i++){
+      v.currentTime = (v.duration-0.05)*i/(N-1);
+      await new Promise(ok=>v.onseeked=ok);
+      if(i===0){
+        o.drawImage(v,...src);
+        const p=Math.max(4,Math.round(cw*0.03)); let sum=0,cnt=0;
+        [[0,0],[cw-p,0],[0,ch-p],[cw-p,ch-p]].forEach(([x,y])=>{ const d=o.getImageData(x,y,p,p).data; for(let k=0;k<d.length;k+=4){ sum+=(d[k]+d[k+1]+d[k+2])/3; cnt++; } });
+        gain=Math.min(1.3, Math.max(1, 248/(sum/cnt)));
+      }
+      o.filter = gain>1.001 ? `brightness(${gain})` : 'none';
+      o.drawImage(v,...src);
+      o.filter='none'; feather();
+      out.push(await createImageBitmap(oc));
+      loading.textContent=`正在准备视频帧… ${Math.round((i+1)/N*100)}%`;
+    }
+    frameCache[idx]=out;
+    if(idx===cur) applyFlower();
+  }catch(e){ if(idx===cur) setStatus('视频载入失败，请换一个 MP4 文件'); }
+  loading.classList.remove('on'); loading.textContent='正在准备视频帧…';
+}
+// 自动读取 videos/ 文件夹里每种花的视频（没有就用占位花）
+async function preload(idx){
+  if(frameCache[idx]!==undefined) return;
+  frameCache[idx]=null;
+  try{ const r=await fetch(FLOWERS[idx].video,{method:'HEAD'}); if(r.ok) await loadVideo(FLOWERS[idx].video, idx); }catch(e){}
+}
+
+/* ---------------- 切换花 ---------------- */
+let fade=1, switching=false;
+function applyFlower(){
+  const f=FLOWERS[cur];
+  frames = frameCache[cur] || null;
+  stage.classList.toggle('video', !!frames);
+  document.getElementById('fNum').textContent=`${String(cur+1).padStart(2,'0')} / ${String(FLOWERS.length).padStart(2,'0')}`;
+  document.getElementById('fCn').textContent=f.cn;
+  document.getElementById('fLatin').textContent=f.latin;
+  document.getElementById('fFamily').textContent=f.family;
+  document.getElementById('fSeason').textContent=f.season;
+}
+async function go(step){
+  if(switching) return; switching=true;
+  for(let a=1;a>=0;a-=0.08){ fade=a; await new Promise(r=>requestAnimationFrame(r)); }
+  cur=(cur+step+FLOWERS.length)%FLOWERS.length;
+  applyFlower(); bloom=Math.min(bloom,0.1);   // 新的花从花苞开始
+  for(let a=0;a<=1;a+=0.08){ fade=a; await new Promise(r=>requestAnimationFrame(r)); }
+  fade=1; switching=false;
+  preload(cur); preload((cur+1)%FLOWERS.length);
+}
+document.getElementById('prevBtn').addEventListener('click',()=>go(-1));
+document.getElementById('nextBtn').addEventListener('click',()=>go(1));
+addEventListener('keydown',e=>{ if(e.key==='ArrowRight') go(1); if(e.key==='ArrowLeft') go(-1); });
+applyFlower(); preload(0); preload(1);
+document.getElementById('fileIn').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) loadVideo(URL.createObjectURL(f)); });
+const drop=document.getElementById('drop');
+addEventListener('dragover',e=>{e.preventDefault(); drop.classList.add('on');});
+addEventListener('dragleave',e=>{ if(e.target===drop) drop.classList.remove('on'); });
+addEventListener('drop',e=>{ e.preventDefault(); drop.classList.remove('on'); const f=e.dataTransfer.files[0]; if(f&&f.type.startsWith('video')) loadVideo(URL.createObjectURL(f)); });
+
+/* ---------------- 手势识别（MediaPipe，全部在本机运行） ---------------- */
+const statusEl=document.getElementById('status');
+function setStatus(s){ statusEl.textContent=s; }
+let landmarker=null, camVideo=document.getElementById('cam');
+const camDraw=document.getElementById('camDraw'), cctx=camDraw.getContext('2d');
+
+document.getElementById('camBtn').addEventListener('click', async (e)=>{
+  e.target.disabled=true;
+  try{
+    setStatus('正在加载手势识别模型…');
+    const {FilesetResolver, HandLandmarker} = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14');
+    const fs = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+    landmarker = await HandLandmarker.createFromOptions(fs,{
+      baseOptions:{ modelAssetPath:'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task', delegate:'GPU' },
+      runningMode:'VIDEO', numHands:1
+    });
+    setStatus('请允许使用摄像头…');
+    const stream = await navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'}});
+    camVideo.srcObject=stream; await camVideo.play();
+    camDraw.width=640; camDraw.height=480;
+    document.getElementById('camBox').classList.add('on');
+    e.target.textContent='摄像头已开启';
+    setStatus('请对着摄像头张开或握拢手掌');
+  }catch(err){
+    console.error(err);
+    e.target.disabled=false;
+    setStatus(err.name==='NotAllowedError'?'摄像头权限被拒绝，可用滑块预览':'手势识别加载失败：'+err.message);
+  }
+});
+
+const TIPS=[4,8,12,16,20];
+const BONES=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+let lastVT=-1, lostAt=0, lastSwipe=0; const trail=[];
+function trackHand(now){
+  if(!landmarker || camVideo.readyState<2 || camVideo.currentTime===lastVT) return;
+  lastVT=camVideo.currentTime;
+  const res = landmarker.detectForVideo(camVideo, now);
+  cctx.clearRect(0,0,640,480);
+  const lm = res.landmarks && res.landmarks[0];
+  if(!lm){
+    if(handSeen){ handSeen=false; lostAt=now; setStatus('没有看到手 · 花会慢慢收拢'); }
+    if(now-lostAt>1500) target=Math.max(0,target-0.004);
+    return;
+  }
+  if(!handSeen){ handSeen=true; setStatus('已识别到手 · 张开绽放，握拳合拢，左右挥手换花'); }
+  const d=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const palm = d(lm[0],lm[9]);
+  const spread = TIPS.reduce((s,i)=>s+d(lm[i],lm[0]),0)/TIPS.length/palm;
+  target = clamp((spread-1.05)/(1.85-1.05));
+  // 挥手切换：手掌在 0.35 秒内横向移动超过画面 30%
+  const x=lm[9].x; trail.push({x,now}); while(trail.length && now-trail[0].now>350) trail.shift();
+  if(now-lastSwipe>1200 && trail.length>2){
+    const dx = x-trail[0].x;
+    if(Math.abs(dx)>0.3){ lastSwipe=now; trail.length=0; go(dx<0?1:-1); }   // 画面是镜像的：向你的右边挥 = 下一种
+  }
+  // 画手部骨架
+  cctx.strokeStyle='rgba(243,240,233,.9)'; cctx.lineWidth=2;
+  BONES.forEach(([a,b])=>{ cctx.beginPath(); cctx.moveTo(lm[a].x*640,lm[a].y*480); cctx.lineTo(lm[b].x*640,lm[b].y*480); cctx.stroke(); });
+  cctx.fillStyle='#c8463e';
+  lm.forEach(p=>{ cctx.beginPath(); cctx.arc(p.x*640,p.y*480,3.5,0,Math.PI*2); cctx.fill(); });
+}
+
+/* ---------------- 主循环 ---------------- */
+const titleEl=document.getElementById('title'), tagEl=document.getElementById('tagline'), pctEl=document.getElementById('pct');
+let stageName='';
+function updateText(t){
+  pctEl.textContent=Math.round(t*100);
+  if(handSeen) slider.value=Math.round(t*1000);
+  const name = t<.2?'bud':t<.75?'open':'full';
+  if(name!==stageName){
+    stageName=name;
+    if(name==='bud'){ titleEl.innerHTML='In<em>bud.</em>'; tagEl.textContent='张开手掌，看它一瓣一瓣地打开。'; }
+    if(name==='open'){ titleEl.innerHTML='Slowly<em>unfolding.</em>'; tagEl.textContent='再张开一些。'; }
+    if(name==='full'){ titleEl.innerHTML='In full<em>bloom.</em>'; tagEl.textContent='花开有时，掌心为期。'; }
+  }
+}
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function loop(now){
+  trackHand(now);
+  bloom += (target-bloom)*(reduce?0.3:0.07);   // 缓动，让动作有惯性
+  ctx.clearRect(0,0,W,H);
+  stage.style.opacity=fade;
+  if(frames) drawFrames(bloom); else drawFlower(bloom, reduce?0:now);
+  updateText(bloom);
+  requestAnimationFrame(loop);
+}
+// 开场：花苞自己慢慢开到一半，提示可以互动
+target=0.55;
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
