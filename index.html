@@ -127,7 +127,7 @@
 /* ---------------- 花的清单：加新花只需在这里加一项，并把视频放进 videos/ ---------------- */
 const FLOWERS = [
   { id:'camellia', cn:'Camellia', latin:'Camellia japonica', family:'Theaceae · Camellia', season:'Blooms Dec — Mar',
-    video:'videos/camellia.mp4', stamens:true,
+    video:'videos/camellia.mp4', stamens:true, crop:0.09,
     colors:['#d6d8b4','#ece9da','#f8f6ef','#ffffff'], edge:'rgba(140,125,95,.22)' },
   { id:'rose', cn:'Rose', latin:"Rosa 'Grand Prix'", family:'Rosaceae · Rosa', season:'Blooms Apr — Oct',
     video:'videos/rose.mp4', stamens:false,
@@ -315,7 +315,7 @@ async function loadVideo(url, idx=cur){
     const sc=Math.min(1, max/Math.max(v.videoWidth,v.videoHeight));
     const out=[];
     // 每帧处理：裁掉底部水印、把灰背景提亮成白色、四周羽化融进页面
-    const CROP=0.09;
+    const CROP=FLOWERS[idx].crop||0;   // 只有带水印的视频才裁底部
     const cw=Math.round(v.videoWidth*sc), ch=Math.round(v.videoHeight*sc*(1-CROP));
     const oc=document.createElement('canvas'); oc.width=cw; oc.height=ch;
     const o=oc.getContext('2d',{willReadFrequently:true});
@@ -339,7 +339,7 @@ async function loadVideo(url, idx=cur){
       }
       o.filter = gain>1.001 ? `brightness(${gain})` : 'none';
       o.drawImage(v,...src);
-      o.filter='none'; feather();
+      o.filter='none'; if(gain>1.02) feather();   // 背景已是纯白就不需要羽化
       out.push(await createImageBitmap(oc));
       loading.textContent=`Preparing video… ${Math.round((i+1)/N*100)}%`;
     }
