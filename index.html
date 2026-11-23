@@ -135,6 +135,9 @@ const FLOWERS = [
   { id:'hydrangea', cn:'Hydrangea', latin:'Hydrangea macrophylla', family:'Hydrangeaceae · Hydrangea', season:'Blooms Jun — Aug',
     video:'videos/hydrangea.mp4', stamens:false,
     colors:['#9db2d1','#bfd0e6','#dde7f3','#f5f8fc'], edge:'rgba(95,115,150,.18)' },
+  { id:'sunflower', cn:'Sunflower', latin:'Helianthus annuus', family:'Asteraceae · Helianthus', season:'Blooms Jul — Sep',
+    video:'videos/sunflower.mp4', stamens:false, disk:true,
+    colors:['#c98a12','#e6a91d','#f4c430','#f9d65c'], edge:'rgba(140,90,10,.3)' },
 ];
 let cur = 0;
 const frameCache = {};   // 每种花的视频帧
@@ -261,6 +264,19 @@ function drawFlower(t, time){
     });
   });
 
+  // 向日葵这类花：中间是深色的种子花盘，种子按螺旋排列
+  if(FLOWERS[cur].disk){
+    const dr = R*0.34*(0.55+0.45*ease(clamp(t)));
+    const g = ctx.createRadialGradient(-dr*.2,-dr*.2,0,0,0,dr);
+    g.addColorStop(0,'#6b4a1f'); g.addColorStop(.6,'#3d2610'); g.addColorStop(1,'#24170a');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,dr,0,Math.PI*2); ctx.fill();
+    const golden = Math.PI*(3-Math.sqrt(5));
+    for(let k=0;k<260;k++){
+      const rr = dr*0.95*Math.sqrt(k/260), a = k*golden;
+      ctx.fillStyle = k<40 ? 'rgba(150,140,60,.55)' : 'rgba(20,12,4,.55)';
+      ctx.beginPath(); ctx.arc(Math.cos(a)*rr, Math.sin(a)*rr, dr*0.028, 0, Math.PI*2); ctx.fill();
+    }
+  }
   // 花蕊（盛开时出现）
   const sa = FLOWERS[cur].stamens ? clamp((t-.45)/.45) : 0;
   if(sa>0){
