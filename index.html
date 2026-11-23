@@ -133,7 +133,7 @@
 </footer>
 
 <div class="drop" id="drop">Drop to load a blooming video</div>
-<div class="loading" id="loading">Preparing video…</div>
+<div class="loading" id="loading">Loading…</div>
 
 <script type="module">
 /* ---------------- 花的清单：加新花只需在这里加一项，并把视频放进 videos/ ---------------- */
@@ -302,10 +302,17 @@ function drawFlower(t, time){
 }
 
 /* ---------------- 视频帧模式 ---------------- */
+// 帧是逐步准备的：还没准备好的帧，就用离它最近的已准备好的帧代替
+function nearestFrame(fr,i){
+  if(fr[i]) return i;
+  for(let d=1; d<fr.length; d++){ if(fr[i-d]) return i-d; if(fr[i+d]) return i+d; }
+  return -1;
+}
 function drawFrames(t){
   const n = frames.length;
   const f = t*(n-1), i = Math.floor(f), k = f-i;
-  const img = frames[i], nxt = frames[Math.min(n-1,i+1)];
+  const j = nearestFrame(frames,i); if(j<0) return;
+  const img = frames[j], nxt = (j===i && frames[i+1]) ? frames[i+1] : img;
   // 窄屏时花可以宽一些；宽屏时留出两侧文字的位置
   const s = Math.min((W<760?0.92:0.52)*W/img.width, (W<760?0.42:0.62)*H/img.height);
   const w = img.width*s, h = img.height*s, x=(W-w)/2, y=(W<760 ? H*0.46 : H*0.5) - h/2;
@@ -316,6 +323,7 @@ function drawFrames(t){
 async function loadVideo(url, idx=cur){
   const loading=document.getElementById('loading');
   if(idx===cur) loading.classList.add('on');
+  let shown=false;
   try{
     // 手机（尤其 iPhone Safari）只有在视频放进页面、静音内联播放后才会真正解码画面
     const v=document.createElement('video');
@@ -334,7 +342,11 @@ async function loadVideo(url, idx=cur){
     const small = Math.min(innerWidth,innerHeight) < 700;   // 手机内存少：帧数和尺寸都减小
     const N = small ? 60 : 90, max = small ? 720 : 1100;
     const sc=Math.min(1, max/Math.max(v.videoWidth,v.videoHeight));
-    const out=[];
+    const out=new Array(N);
+    frameCache[idx]=out;
+    // 先取首尾两帧，再由粗到细补齐中间的帧：几百毫秒内就能显示真实的花，之后越来越顺
+    const order=[0,N-1]; const seen=new Set(order);
+    for(let step=64; step>=1; step>>=1) for(let i=0;i<N;i+=step) if(!seen.has(i)){ seen.add(i); order.push(i); }
     // 每帧处理：裁掉底部水印、把灰背景提亮成白色、四周羽化融进页面
     const CROP=FLOWERS[idx].crop||0;   // 只有带水印的视频才裁底部
     const cw=Math.round(v.videoWidth*sc), ch=Math.round(v.videoHeight*sc*(1-CROP));
@@ -349,10 +361,11 @@ async function loadVideo(url, idx=cur){
         o.fillStyle=g; o.fillRect(rx,ry,rw,rh);
       });
     };
-    for(let i=0;i<N;i++){
+    for(let q=0;q<N;q++){
+      const i=order[q];
       v.currentTime = (v.duration-0.05)*i/(N-1);
       await new Promise(ok=>{ v.onseeked=ok; setTimeout(ok,3000); });
-      if(i===0){
+      if(q===0){
         o.drawImage(v,...src);
         const p=Math.max(4,Math.round(cw*0.03)); let sum=0,cnt=0;
         [[0,0],[cw-p,0],[0,ch-p],[cw-p,ch-p]].forEach(([x,y])=>{ const d=o.getImageData(x,y,p,p).data; for(let k=0;k<d.length;k+=4){ sum+=(d[k]+d[k+1]+d[k+2])/3; cnt++; } });
@@ -361,20 +374,22 @@ async function loadVideo(url, idx=cur){
       o.filter = gain>1.001 ? `brightness(${gain})` : 'none';
       o.drawImage(v,...src);
       o.filter='none'; if(bgAvg<245) feather();   // 背景明显偏灰时才羽化四周
-      out.push(await createImageBitmap(oc));
-      loading.textContent=`Preparing video… ${Math.round((i+1)/N*100)}%`;
+      out[i]=await createImageBitmap(oc);
+      if(!shown && q>=1){ shown=true; if(idx===cur){ applyFlower(); loading.classList.remove('on'); } }
     }
     v.remove();
-    frameCache[idx]=out;
-    if(idx===cur) applyFlower();
-  }catch(e){ if(idx===cur) setStatus('Video failed to load. Try another MP4 file.'); }
-  loading.classList.remove('on'); loading.textContent='Preparing video…';
+  }catch(e){
+    FLOWERS[idx].failed=true; frameCache[idx]=null;
+    if(idx===cur){ applyFlower(); setStatus('Video failed to load. Showing a sketch instead.'); }
+  }
+  if(idx===cur) loading.classList.remove('on');
 }
-// 自动读取 videos/ 文件夹里每种花的视频（没有就用占位花）
-async function preload(idx){
+// 依次读取每种花的视频（一次一个，避免互相抢资源）；读取失败才用程序画的占位花
+let loadQueue=Promise.resolve();
+function preload(idx){
   if(frameCache[idx]!==undefined) return;
   frameCache[idx]=null;
-  try{ const r=await fetch(FLOWERS[idx].video,{method:'HEAD'}); if(r.ok) await loadVideo(FLOWERS[idx].video, idx); }catch(e){}
+  loadQueue=loadQueue.then(()=>loadVideo(FLOWERS[idx].video, idx));
 }
 
 /* ---------------- 切换花 ---------------- */
@@ -383,6 +398,7 @@ function applyFlower(){
   const f=FLOWERS[cur];
   frames = frameCache[cur] || null;
   stage.classList.toggle('video', !!frames);
+  document.getElementById('loading').classList.toggle('on', !(frames && frames.some(Boolean)) && !f.failed);
   document.getElementById('fNum').textContent=`${String(cur+1).padStart(2,'0')} / ${String(FLOWERS.length).padStart(2,'0')}`;
   document.getElementById('fCn').textContent=f.cn;
   document.getElementById('fLatin').textContent=f.latin;
@@ -396,12 +412,12 @@ async function go(step){
   applyFlower(); bloom=Math.min(bloom,0.1);   // 新的花从花苞开始
   for(let a=0;a<=1;a+=0.08){ fade=a; await new Promise(r=>requestAnimationFrame(r)); }
   fade=1; switching=false;
-  preload(cur); preload((cur+1)%FLOWERS.length);
+  preload(cur);
 }
 document.getElementById('prevBtn').addEventListener('click',()=>go(-1));
 document.getElementById('nextBtn').addEventListener('click',()=>go(1));
 addEventListener('keydown',e=>{ if(e.key==='ArrowRight') go(1); if(e.key==='ArrowLeft') go(-1); });
-applyFlower(); preload(0); preload(1);
+applyFlower(); FLOWERS.forEach((_,i)=>preload(i));
 document.getElementById('fileIn').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) loadVideo(URL.createObjectURL(f)); });
 const drop=document.getElementById('drop');
 addEventListener('dragover',e=>{e.preventDefault(); drop.classList.add('on');});
@@ -491,7 +507,7 @@ function loop(now){
   bloom += (target-bloom)*(reduce?0.3:0.07);   // 缓动，让动作有惯性
   ctx.clearRect(0,0,W,H);
   stage.style.opacity=fade;
-  if(frames) drawFrames(bloom); else drawFlower(bloom, reduce?0:now);
+  if(frames) drawFrames(bloom); else if(FLOWERS[cur].failed) drawFlower(bloom, reduce?0:now);
   updateText(bloom);
   requestAnimationFrame(loop);
 }
